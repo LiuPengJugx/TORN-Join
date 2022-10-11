@@ -219,7 +219,6 @@ class MultiTableJoin:
                 link_id=tid
                 target_id=tid+1
                 if tid<len(self.training_set_tables.keys())-1:
-                    print(f"22222  {link_id}:{depth},,{target_id}:{depth}   total_cost:{self.compute_query_cost_between_two_depth(pa_list[link_id], pa_list[target_id], link_id, target_id)}")
                     if tid==0:
                         adaptdb_res.append(adaptdb_res[-1]+self.compute_query_cost_between_two_depth(pa_list[link_id],pa_list[target_id],link_id,target_id))
 

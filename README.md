@@ -1,6 +1,16 @@
 ## TORN Layout for Distributed Joins
 
-This is the source code of the paper TORN, which is mainly oriented to distributed join scenarios, optimizing the data layout for multi-table queries, single-table queries and the co-partitioning of blocks on its basis. Its main execution process is: a) train MLP predictor to predict historical queries _<workload_predictor.py>_; b) build adaptive partition trees based on predicted (multi-table and single-table) queries _<partition_algorithm.py>_; c) form partition files (parquet) by routing data based on partition trees _<data_routing.ipynb>_; d) conduct experiments using evaluation metrics _<experiment.py / experiment.ipynb>_; e) execute experiments on spark _<query_routing.ipynb>_.
+This is the source code of the paper TORN, which is mainly oriented to distributed join scenarios, optimizing the data layout for multi-table queries, single-table queries and the co-partitioning of blocks on its basis. Its main execution process is: 
+
+a) train MLP predictor to predict historical queries _<workload_predictor.py>_; 
+
+b) build adaptive partition trees based on predicted (multi-table and single-table) queries _<partition_algorithm.py>_; 
+
+c) form partition files (parquet) by routing data based on partition trees _<data_routing.ipynb>_; 
+
+d) conduct experiments using evaluation metrics _<experiment.py / experiment.ipynb>_; 
+
+e) execute experiments on spark _<query_routing.ipynb>_.
 
 #### 1. Project Structure
 
@@ -64,7 +74,7 @@ The project's dependency packages are written to the requirement.txt and can be 
 python3 -m pip install -r requirements.txt
 ```
 
-#### 4. Details on determining the optimal depths of multiple trees
+#### 4. Details on determining the optimal depths of multiple trees _<experiment.py:compare_hyper_join_with_multitable>_.
 
 Assigning reasonable depths to two levels of tree has an important impact on the quality of join tree. We define the join depth of top layer as $dp_j$. Once $dp_j$ is determined, the depth of bottom layer can be calculated by the maximum depth of the leaf node.
 
