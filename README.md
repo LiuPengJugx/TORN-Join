@@ -74,7 +74,9 @@ The project's dependency packages are written to the requirement.txt and can be 
 python3 -m pip install -r requirements.txt
 ```
 
-#### 4. Details on determining the optimal depths of multiple trees _<experiment.py:compare_hyper_join_with_multitable>_.
+#### 4. Details on determining the optimal depths of multiple trees.
+
+_<experiment.py:compare_hyper_join_with_multitable>_
 
 Assigning reasonable depths to two levels of tree has an important impact on the quality of join tree. We define the join depth of top layer as $dp_j$. Once $dp_j$ is determined, the depth of bottom layer can be calculated by the maximum depth of the leaf node.
 
