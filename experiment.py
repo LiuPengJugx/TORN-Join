@@ -9,30 +9,38 @@ from partition_tree import PartitionTree
 import matplotlib.pyplot as plt
 from join_until import JOIN_UNTIL
 import pickle
-used_dims = [1,2,3,4]  #store_sales
-# used_dims = [0,1,2,4]  #lineitem
-# HDFS文件块默认大小在Hadoop2.x版本中是128M，老版本中是64M
+"""
+Experiment Support Class: provide the main function of testing the performance of different algorithms
+"""
+
+# Step 1: Select used attribute dimensions of table data
+# used_dims = [1,2,3]  #store_sales with join_attr(index)=0
+used_dims = [0,1,2,4]  #lineitem
+
+# Step 2: Specify some parameters for scale factor / sampling rate / scaled block size etc.
+scale_factor=1
 # this is important! block_size (here) * (1/sampling rate) = 128MB( = 1,000,000 records in Spark cluster)
 # # 1.2G == 5998152 == 6000000, block_size (here) * (1/sampling rate) = 128MB( = 600,000 records in Spark cluster)
-scale_factor=1
-# max_active_ratio=50
-max_active_ratio=3
 sampling_rate=1/scale_factor
-# block_size = int(1000000*sampling_rate/10/2)  128M的概念是在Hadoop的数据集(例如100G, block_size=10000, sample_dataset=6000000)比较大的前提下，当数据集比较小的情况下，同程度缩写block size。
 block_size = 10000 # 1.1M compared to 6M
+
+# Step 3: Define the workload generator, including the path of queries, datasets,
 base_path = '/home/liupengju/pycharmProjects/NORA_JOIN_SIMULATION/NORA_experiments'
-helper = DatasetAndQuerysetHelper(used_dimensions=used_dims, scale_factor=scale_factor,base_path=base_path,tab_name='store_sales')
+helper = DatasetAndQuerysetHelper(used_dimensions=used_dims, scale_factor=scale_factor,base_path=base_path)
+# helper = DatasetAndQuerysetHelper(used_dimensions=used_dims, scale_factor=scale_factor,base_path=base_path,tab_name='store_sales')
 # helper.total_dims=23
 # helper.domain_dims=23
-# helper.generate_dataset_and_save(base_path+'/dataset/store_sales_1.tbl')
-
-
+# helper.generate_dataset_and_save(base_path+'/dataset/store_sales_50.tbl')
 helper.maximum_range_percent = 0.15
 dataset, domains = helper.load_dataset(used_dims)
-print(len(dataset))
-boundary = [interval[0] for interval in domains] + [interval[1] for interval in domains]
+boundary = [interval[0] for interval in domains] + [interval[1] for interval in domains]  # the boundaries of entire table data
+
+# Step 4: user-defined parameters for grouping split / bounding split
+max_active_ratio=3  # max_active_ratio=50
 
 pa_algos=[]
+
+# Exp: Use saved data layout to test the performance of singe-table queries
 def test_save_compare_without_join():
     global pa_algos
     # dim_prob = [0 if i >1 else 1 for i in range(len(used_dims))]
@@ -61,6 +69,8 @@ def test_save_compare_without_join():
     print(np.round(np.array(cost_res)/dataset.shape[0],4))
     # print_exec_result(training_set)
 
+# Exp: Test the performance of singe-table queries.
+# parameter: save, control whether to generate data layout file
 def compare_without_join(save=False):
     global pa_algos
     # dim_prob = [0 if i >1 else 1 for i in range(len(used_dims))]
@@ -129,6 +139,8 @@ def compare_without_join(save=False):
 
     print_exec_result(training_set)
 
+
+# Exp: Given two data layouts with specify depths, we test its hyper-join cost
 @ray.remote(num_returns=3)
 def compute_hyper_by_depth(ju,a_training_set,b_training_set,join_attr,join_depth,a_join_queries,b_join_queries):
     pa_A = PartitionAlgorithm()
@@ -152,7 +164,7 @@ def compute_hyper_by_depth(ju,a_training_set,b_training_set,join_attr,join_depth
     min_hyper_blocks_size, min_table = ju.compute_join_blocks_for_main_table(a_join_queries, b_join_queries)
     return pa_A,pa_B,min_hyper_blocks_size
 
-
+# Exp: Given stored two data layouts with specify depths, we test its hyper-join cost
 def test_save_compare_join_with_shuffle():
     global pa_algos
     join_attr = 0
@@ -191,9 +203,8 @@ def test_save_compare_join_with_shuffle():
     print(final_query_cost_res)
 
 
-
+# EXp: Generate queries with different query amounts and join ratio, and measure the hyper-join cost and single-table query cost of data layouts optimized by bottom-up algorithm and QDG
 def compare_join_depth_with_shuffle_with_ray(save_model=False):
-
     # vary_query_amount=[(200,150),(300,200),(500,300),(600,350)]
     vary_query_amount=[(300,200)]
     join_original_ratio=0.3
@@ -476,9 +487,10 @@ def compare_join_depth_with_shuffle_with_ray(save_model=False):
 #             final_query_cost_res.append(min(temp_cost_res_list))
 #     print(final_query_cost_res)
 
-def compare_hyper_join_with_multitable(table_num=4,save_model=False,save_queryset=False):
+# Exp: we test the performance of join queries over AdaptDB and TORN
+def compare_hyper_join_with_multitable(table_num=4,save_model=False,save_queryset=False,suffix=''):
     ray.init(num_cpus=12)
-    from multi_join import MultiTableJoin
+    from join_depths import MultiTableJoin
     join_attr=0
     table_names = ['a', 'b', 'c', 'd', 'e', 'f']
     adaptdb_improved_res,nora_res,adaptdb_improved_res2=[],[],[0]
@@ -612,12 +624,12 @@ def compare_hyper_join_with_multitable(table_num=4,save_model=False,save_queryse
             adaptdb_improved_res=TORN_res
         elif model_name=='nora':
             nora_res=TORN_res
-            # nora_fixed_res, min_depth = multi_table_join.print_query_cost_for_nora()
+            nora_fixed_res, min_depth = multi_table_join.print_query_cost_for_nora()
             # print(f"fixed depth {min_depth} for nora!!")
         save_cost_dict_list.append(save_cost_for_tables_dict)
 
     print(adaptdb_fixed_res)
-    print(adaptdb_improved_res)
+    # print(adaptdb_improved_res)
     print(nora_fixed_res)
     print(nora_res)
     print(save_cost_dict_list)
@@ -625,15 +637,15 @@ def compare_hyper_join_with_multitable(table_num=4,save_model=False,save_queryse
     # [0, 25520961.3, 43236493.400000006, 56774943.400000006, 66285075.60000001]
     # [0, 38024196.5, 64250493.1, 85057804.80000001, 100432841.60000001]
     if save_queryset:
-        multi_table_join.save_queryset()
+        multi_table_join.save_queryset(suffix)
     if save_model:
-        multi_table_join.save_tree_model(best_depth_tables)
+        multi_table_join.save_tree_model(best_depth_tables,suffix)
         #----------save for adaptdb tree-------------
-        multi_table_join.save_tree_model_for_adaptdb()
+        multi_table_join.save_tree_model_for_adaptdb(suffix)
 
 
 
-
+# Exp: we test the performance of join queries over stored AdaptDB layout and TORN layout
 def test_save_compare_join_with_multitable(table_num=4):
     join_attr = 0
     scale_w = 1 / 10  # hyper cost only access the join attribute data.
@@ -690,7 +702,7 @@ def test_save_compare_join_with_multitable(table_num=4):
     print(stored_temp_cost_list)
     print(final_query_cost_res)
 
-
+# EXP: our proposed join depth determination algorithm for TORN
 def determine_join_depth_with_shuffle_for_NORA():
     join_a_q_amount = 500
     join_b_q_amount = 300
@@ -805,6 +817,7 @@ def determine_join_depth_with_shuffle_for_NORA():
                 plt.subplots_adjust(hspace=0.3)
             plt.savefig('/home/liupengju/pycharmProjects/NORA_JOIN_SIMULATION/images/jnora_analysis.png')
 
+
 def compare_local_join():
     global pa_algos
     join_attr = 0
@@ -839,7 +852,7 @@ def compare_local_join():
 
     pa_algos+=[pa1,pa2,pa2_2,pa3]
 
-
+# visualize the performance shift of the different depth combinations for join tree
 def compare_join_depth_without_shuffle():
     join_depth=5
     # helper.generate_dataset_and_save(base_path+'/dataset/lineitem_1.tbl')
@@ -893,7 +906,7 @@ def compare_join_depth_without_shuffle():
         plt.plot(join_depth_candidate, cost_res[i], 'o-', color=colors[i])
     plt.savefig('/home/liupengju/pycharmProjects/NORA_JOIN_SIMULATION/images/jnora_analysis.png')
 
-
+# Input: data layout (LB-Cost); workload  Output: scan ratio
 def print_exec_result(training_set):
     cost_res=[]
     time_res=[]
@@ -905,20 +918,19 @@ def print_exec_result(training_set):
     result_sizes = helper.real_result_size(dataset, training_set)
     print("Total LB-Cost:", sum(result_sizes))
     cost_res.append(max(sum(result_sizes)/len(result_sizes), block_size))
-
     print(methods)
     print(np.round(np.array(cost_res)/dataset.shape[0],4))
     print(time_res)
 
-
 def main():
     # test_save_compare_without_join()
-    compare_without_join(save=True)
+    # compare_without_join(save=True)
     # determine_join_depth_with_shuffle_for_NORA()
     # compare_join_depth_with_shuffle()
     # test_save_compare_join_with_shuffle()
     # compare_join_depth_with_shuffle_with_ray()
-    # compare_hyper_join_with_multitable(6)
+    compare_hyper_join_with_multitable(5)
+    # compare_hyper_join_with_multitable(5,save_model=False,save_queryset=False,suffix='tpcds/')
     # test_save_compare_join_with_multitable(5)
     # compare_local_join()
     pass

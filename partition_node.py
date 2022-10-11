@@ -2,12 +2,10 @@ import math
 import numpy as np
 import copy
 
-
+"""
+the MBR that bound overlapped queries
+"""
 class QueryMBR:
-    '''
-    the MBR that bound overlapped queries
-    '''
-
     def __init__(self, boundary, added_as_fist_query=True):
         self.num_dims = int(len(boundary) / 2)
         self.boundary = boundary
@@ -41,7 +39,9 @@ class QueryMBR:
             return False
         return True
 
-
+"""
+A node class used to construct partition tree.
+"""
 class PartitionNode:
     '''
     A partition node, including both the internal and leaf nodes in the partition tree

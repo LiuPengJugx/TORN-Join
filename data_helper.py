@@ -5,7 +5,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import os.path
-
+"""
+A Dataset and Workload Support Class:
+its functions: loading, generating, processing
+"""
 class DatasetAndQuerysetHelper:
     '''
     naming:

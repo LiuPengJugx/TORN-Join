@@ -1,7 +1,10 @@
 import random
 import time
-class JOIN_UNTIL:
 
+"""
+A tool class that provides QDG algorithm and computes hyper / shuffle join cost.
+"""
+class JOIN_UNTIL:
     def __init__(self,a_training_set, b_training_set, join_attr, dim_nums):
         self.a_training_set=a_training_set
         self.b_training_set=b_training_set
@@ -440,7 +443,7 @@ class JOIN_UNTIL:
             resizedSplits.append(cur_splits)
         return resizedSplits
 
-    # best (group algorithm)
+    # Our QDG algorithm
     def group3(self,overlap_chunks, join_a_block_ids, partition_size):
         def list_solved_list(l1, l2):
             for item1 in l1:

@@ -8,6 +8,10 @@ import numpy as np
 import copy
 import random
 from line_profiler import LineProfiler
+"""
+The core partitioning algorithm class 
+Attribute: partition_tree is constructed partition tree.
+"""
 class PartitionAlgorithm:
     '''
     The partition algorithms, inlcuding NORA, QdTree and kd-tree.
@@ -15,9 +19,8 @@ class PartitionAlgorithm:
     def __init__(self, data_threshold = 10000):
         self.partition_tree = None
         self.data_threshold = data_threshold
-    
-    # = = = = = public functions (API) = = = = =
-    
+
+    # Considering no-recursive beam search for PAW
     def InitializeWithPAW(self, queries, num_dims, boundary, dataset, data_threshold, max_active_ratio = 3, strategy = 1,
                           using_beam_search = False, candidate_size = 1, candidate_depth = 1, beam_search_mode = 0):
         self.partition_tree = PartitionTree(num_dims, boundary)
@@ -39,6 +42,7 @@ class PartitionAlgorithm:
         print("Build Time (s):", end_time-start_time)
         self.partition_tree.build_time =end_time-start_time
 
+    # new version: considering no-recursive beam search for PAW
     def InitializeWithPAW2(self, queries, num_dims, boundary, dataset, data_threshold, max_active_ratio=3,
                           using_beam_search=False, candidate_size=1, candidate_depth=1, beam_search_mode=0,strategy=0):
         self.partition_tree = PartitionTree(num_dims, boundary)
@@ -65,7 +69,10 @@ class PartitionAlgorithm:
         self.partition_tree.build_time = end_time - start_time
 
 
-
+    # Our TORN layout for distributed joins,
+    # The top layer is constructed with no-recursive beam search and skip-base splits
+    # The bottom layer is constructed with recursive beam search, data-replicate and various splits
+    # The depth for every layer is computed by Multi-step greedy。
     def InitializeWithJNORA(self,queries, num_dims, boundary, dataset, data_threshold, join_attr, using_1_by_1 = False, using_kd = False,using_am=False,
                              candidate_size = 2,candidate_depth = 2,depth_limit =None,join_depth=3):
         self.partition_tree = PartitionTree(num_dims, boundary)
@@ -102,6 +109,7 @@ class PartitionAlgorithm:
         # self.query_count=query_cross_cost
         self.partition_tree.build_time = end_time - start_time
 
+    # AdaptDB layout
     def InitializeWithADP(self, queries, num_dims, boundary, dataset, data_threshold,join_attr,join_depth=3):
         '''
         # should I also store the candidate cut positions in Partition Node ?
@@ -117,11 +125,12 @@ class PartitionAlgorithm:
         start_time = time.time()
         self.__AMT_JOIN(data_threshold, join_attr, join_depth)
         print(f"{join_depth} ______________________________________")
-        self.__JQDT(data_threshold)
+        self.__JQDT(data_threshold,join_depth)
         end_time = time.time()
         print("Build Time (s):", end_time-start_time)
         self.partition_tree.build_time = end_time - start_time
 
+    # Amoeba layout
     def InitializeWithAMT(self, num_dims, boundary, dataset, data_threshold):
         self.partition_tree = PartitionTree(num_dims, boundary)
         self.partition_tree.pt_root.node_size = len(dataset)
@@ -141,6 +150,7 @@ class PartitionAlgorithm:
         end_time = time.time()
         print("Build Time (s):", end_time-start_time)
 
+    # Specify TORN layout for single-table queries (convenient for experiments)
     def InitializeWithNORA(self, queries, num_dims, boundary, dataset, data_threshold, using_1_by_1 = False, using_kd = False, 
                            depth_limit = None, return_query_cost = False, using_beam_search = False,using_beam_search_plus = False, candidate_size = 2,
                            candidate_depth = 2):
@@ -180,7 +190,8 @@ class PartitionAlgorithm:
         
         print("Build Time (s):", end_time-start_time)
         self.partition_tree.build_time = end_time - start_time
-    
+
+    # QD-Tree layout
     def InitializeWithQDT(self, queries, num_dims, boundary, dataset, data_threshold):
         '''
         # should I also store the candidate cut positions in Partition Node ?
@@ -198,7 +209,7 @@ class PartitionAlgorithm:
         print("Build Time (s):", end_time-start_time)
         self.partition_tree.build_time = end_time - start_time
 
-
+    # KD-Tree
     def InitializeWithKDT(self, num_dims, boundary, dataset, data_threshold):
         '''
         num_dims denotes the (first) number of dimension to split, usually it should correspond with the boundary
@@ -1188,7 +1199,7 @@ class PartitionAlgorithm:
                 # get best candidate cut position
                 skip, max_skip, max_skip_split_dim, max_skip_split_value, max_skip_split_type = 0, -1, 0, 0, 0
                 # extend the candidate cut with medians when it reach the bottom
-                candidate_cuts = leaf.get_candidate_cuts_for_join(join_attr)
+                candidate_cuts = leaf.get_candidate_cuts_for_join(0)
                 for split_dim, split_value in candidate_cuts:
 
                     # first try normal split
@@ -1414,7 +1425,7 @@ class PartitionAlgorithm:
                 skip, max_skip, max_skip_split_dim, max_skip_split_value, max_skip_split_type = 0, -1, 0, 0, 0
                 # extend the candidate cut with medians when it reach the bottom
                 # candidate_cuts = leaf.get_candidate_cuts(True) if leaf.node_size < 4 * data_threshold else leaf.get_candidate_cuts()
-                candidate_cuts = leaf.get_candidate_cuts(extended=True, begin_pos=2)  # try extends it always
+                candidate_cuts = leaf.get_candidate_cuts(extended=True, begin_pos=1)  # try extends it always
 
                 split_candidates = []
                 for split_dim, split_value in candidate_cuts:
@@ -1541,7 +1552,7 @@ class PartitionAlgorithm:
                     # print(" Split on node id:", leaf.nid)
                     CanSplit = True
 
-    def __JQDT(self, data_threshold):
+    def __JQDT(self, data_threshold,join_depth):
         '''
         the QdTree partition algorithm
         '''
@@ -1559,7 +1570,7 @@ class PartitionAlgorithm:
                 if leaf.node_size < 2 * data_threshold:
                     continue
 
-                candidate_cuts = leaf.get_candidate_cuts(extended=False, begin_pos=2)
+                candidate_cuts = leaf.get_candidate_cuts(extended=False, begin_pos=1)
 
                 # get best candidate cut position
                 skip, max_skip, max_skip_split_dim, max_skip_split_value = 0, -1, 0, 0
