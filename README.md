@@ -1,6 +1,6 @@
 ## TORN Layout for Distributed Joins
 
-This is the source code of the paper TORN, which is mainly oriented to distributed join scenarios, optimizing the data layout for multi-table queries, single-table queries and the co-partitioning of blocks on its basis. Its main execution process is: a) train MLP predictor to predict historical queries; b) build adaptive partition trees based on predicted (multi-table and single-table) queries; c) form partition files (parquet) by routing data based on partition trees; d) conduct experiments using evaluation metrics; e) execute experiments on spark.
+This is the source code of the paper TORN, which is mainly oriented to distributed join scenarios, optimizing the data layout for multi-table queries, single-table queries and the co-partitioning of blocks on its basis. Its main execution process is: a) train MLP predictor to predict historical queries _<workload_predictor.py>_; b) build adaptive partition trees based on predicted (multi-table and single-table) queries _<partition_algorithm.py>_; c) form partition files (parquet) by routing data based on partition trees _<data_routing.ipynb>_; d) conduct experiments using evaluation metrics _<experiment.py / experiment.ipynb>_; e) execute experiments on spark _<query_routing.ipynb>_.
 
 #### 1. Project Structure
 
@@ -31,7 +31,7 @@ This is the source code of the paper TORN, which is mainly oriented to distribut
 
 - **experiment.ipynb** includes the experiments related to scalability.
 
-- **experiment_join.ipynb** includes some experiments related to distributed joins. It is responsible for evaluating the performance of TORN and adaptdb under multi-table queries.
+- **experiment_join.ipynb** includes some experiments related to distributed joins. It is responsible for evaluating the performance of TORN and adaptdb over multi-table queries.
 
 #### 2. HDFS and Spark environment
 
